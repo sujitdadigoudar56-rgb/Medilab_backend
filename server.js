@@ -23,19 +23,28 @@ app.get('/', (req, res) => {
 let cachedDb = null;
 
 async function connectToDatabase() {
-  if (cachedDb) {
+  if (cachedDb && mongoose.connection.readyState === 1) {
     console.log('Using cached MongoDB connection');
     return cachedDb;
   }
 
   if (!process.env.MONGODB_URI) {
+    console.error('CRITICAL: MONGODB_URI is not defined');
     throw new Error('MONGODB_URI is not defined in environment variables');
   }
 
-  console.log('Connecting to MongoDB...');
-  const db = await mongoose.connect(process.env.MONGODB_URI);
-  cachedDb = db;
-  return db;
+  console.log('Connecting to MongoDB (URI Present)...');
+  try {
+    const db = await mongoose.connect(process.env.MONGODB_URI, {
+      serverSelectionTimeoutMS: 5000, // Timeout after 5s instead of default 30s
+    });
+    cachedDb = db;
+    console.log('Successfully connected to MongoDB');
+    return db;
+  } catch (err) {
+    console.error('Actual MongoDB connection error:', err.message);
+    throw err;
+  }
 }
 
 // Middleware to ensure DB is connected
